@@ -5,7 +5,7 @@ import React, {
   StyleSheet,
   Text,
   Image,
-  TouchableHighlight,
+  TouchableOpacity,
   View,
   TextInput
 } from 'react-native';
@@ -60,11 +60,11 @@ class ReacherAndroid extends Component {
           <ImageSwitcher
             style={styles.image}
             condition={this.state.condition}/>
-          <TouchableHighlight
+          <TouchableOpacity
             style={styles.button}
             onPress={this._onPressButton.bind(this)}>
             <Text style={{color: 'white'}}>Test</Text>
-          </TouchableHighlight>
+          </TouchableOpacity>
         </View>
       </View>
     );

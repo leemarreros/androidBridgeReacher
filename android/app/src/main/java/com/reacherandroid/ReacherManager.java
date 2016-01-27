@@ -1,34 +1,32 @@
 package com.reacherandroid;
 import com.reacherandroid.ReacherModule;
 
-import android.content.Context;
 import android.text.TextUtils;
-import android.os.AsyncTask;
-import android.widget.Toast;
 import java.io.IOException;
+import java.util.concurrent.Callable;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.concurrent.Callable;
-
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 class ReacherManager {
   static String typeOfInput;
-  static boolean reachable = false;
 
-  public static boolean connect(String input) {
+  public static boolean connect(String input){
     typeOfInput = getTypeOfInput(input);
     if (typeOfInput == "invalid") {
       return false;
     }
 
-    DoBackGroundTask doBackGroundTask = new DoBackGroundTask();
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    Future<Boolean> answer = executor.submit(new DoBackGroundTask(input));
     try {
-      return doBackGroundTask.execute(input).get();
-    } catch(Exception e) {
+      return answer.get();
+    } catch (Exception e) {
       e.printStackTrace();
     }
-
     return false;
   }
 
@@ -46,7 +44,7 @@ class ReacherManager {
                 if (Integer.parseInt(ipNum) >= 0 && Integer.parseInt(ipNum) <= 255) {
                     isValidIP = true;
                 } else {
-                    // Toast.makeText(getReactApplicationContext(), "The IP address is out of range.", Toast.LENGTH_LONG).show();
+                    System.out.println("The IP address is out of range.");
                     isValidIP = false;
                     break;
                 }
@@ -64,50 +62,59 @@ class ReacherManager {
     } catch (MalformedURLException e) {
         e.printStackTrace();
         if (e.getMessage().contains("Unknown protocol")) {
-            // Toast.makeText(getReactApplicationContext(), e.getMessage(), Toast.LENGTH_LONG).show();
+            System.out.println(e.getMessage());
         } else if (e.getMessage().contains("Protocol not found")) {
-            // Toast.makeText(getReactApplicationContext(), "Provide a protocol (http:// or https://)", Toast.LENGTH_LONG).show();
+            System.out.println("Provide a protocol (http:// or https://)");
         }
         return "invalid";
     }
     return "URL";
   }
 
-  public static class DoBackGroundTask extends AsyncTask<String, Void, Boolean> {
+  public static class DoBackGroundTask implements Callable<Boolean> {
+      static boolean reachable = false;
+      private String input;
+
+      public DoBackGroundTask(String input) {
+        this.input = input;
+      }
 
       @Override
-      protected Boolean doInBackground(String...inputs) {
-          // Checks when input is URL: https://www.google.com
-          if (typeOfInput == "URL") {
-              System.out.println("Working");
-              try {
-                  URL input = new URL(inputs[0]);
-                  HttpURLConnection httpURLConnection = (HttpURLConnection) input.openConnection();
-                  httpURLConnection.setRequestProperty("User-Agent", "Android Application");
-                  httpURLConnection.setRequestProperty("Connection", "close");
-                  httpURLConnection.setConnectTimeout(2000);
-                  httpURLConnection.connect();
-                  reachable = (httpURLConnection.getResponseCode() == 200);
-              } catch (IOException e) {
-                  reachable = false;
-              }
-          } else {
-              // Checks when input is IP: 216.58.213.196
-              try {
-                  Process process = Runtime.getRuntime().exec("/system/bin/ping -c 1 -w 1 " + inputs[0]);
-                  int mExitValue = process.waitFor();
-                  reachable = mExitValue == 0;
-              }
-              catch (InterruptedException ignore) {
-                  ignore.printStackTrace();
-                  System.out.println(" Exception:"+ignore);
-              }
-              catch (IOException e) {
-                  e.printStackTrace();
-                  System.out.println(" Exception:" + e);
-              }
-          }
-          return reachable;
+      public Boolean call() throws Exception {
+        return reach(input);
+      }
+
+      private boolean reach(String input) throws InterruptedException {
+        // Checks when input is URL: https://www.google.com
+        if (typeOfInput == "URL") {
+            try {
+                URL url = new URL(input);
+                HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setRequestProperty("User-Agent", "Android Application");
+                httpURLConnection.setRequestProperty("Connection", "close");
+                httpURLConnection.setConnectTimeout(2000);
+                httpURLConnection.connect();
+                reachable = (httpURLConnection.getResponseCode() == 200);
+            } catch (IOException e) {
+                return false;
+            }
+        } else {
+            // Checks when input is IP: 216.58.213.196
+            try {
+                Process process = Runtime.getRuntime().exec("/system/bin/ping -c 1 -w 1 " + input);
+                int mExitValue = process.waitFor();
+                reachable = mExitValue == 0;
+            }
+            catch (InterruptedException ignore) {
+                ignore.printStackTrace();
+                System.out.println(" Exception:" + ignore);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                System.out.println(" Exception:" + e);
+            }
+        }
+        return reachable;
       }
   }
 
